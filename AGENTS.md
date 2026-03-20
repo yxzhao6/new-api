@@ -130,3 +130,37 @@ For request structs that are parsed from client JSON and then re-marshaled to up
   - field absent in client JSON => `nil` => omitted on marshal;
   - field explicitly set to zero/false => non-`nil` pointer => must still be sent upstream.
 - Avoid using non-pointer scalars with `omitempty` for optional request parameters, because zero values (`0`, `0.0`, `false`) will be silently dropped during marshal.
+
+## Cursor Cloud specific instructions
+
+### Services
+
+| Service | How to run | Port | Notes |
+|---------|-----------|------|-------|
+| Go backend | `go run main.go` (from repo root) | 3000 | Serves API + embedded frontend. Uses SQLite by default (no DB setup needed). |
+| Frontend dev server | `bun run dev` (from `web/`) | 5173 | Vite HMR server; proxies `/api`, `/mj`, `/pg` to backend at `:3000`. |
+
+### Running services for development
+
+1. **Start the backend first**: `cd /workspace && go run main.go` — it auto-creates a SQLite database (`new-api.db`) on first run. No Redis or external DB required for single-node dev.
+2. **Start the frontend dev server**: `cd /workspace/web && bun run dev` — provides hot-reload at `http://localhost:5173`.
+3. The Vite dev server proxies API requests to the backend, so both must be running for the full dev experience.
+
+### First-time setup (initialization)
+
+On a fresh database, the system requires initialization via the setup wizard at `http://localhost:5173` (or `POST /api/setup`). This creates the root admin account. The setup page appears automatically when the system is uninitialized.
+
+### Key commands
+
+- **Go tests**: `go test ./...` — the root package test requires `web/dist` to exist (run `bun run build` in `web/` first), but all sub-package tests pass independently.
+- **Frontend lint**: `cd web && bun run lint` (runs `prettier --check`)
+- **Frontend build**: `cd web && bun run build`
+- **Backend build**: `go build -o new-api main.go`
+- See `makefile` for combined build targets.
+
+### Non-obvious caveats
+
+- The Go binary embeds `web/dist` via `//go:embed`. Running `go test` or `go build` on the root package will fail if `web/dist` does not exist. Build the frontend first with `cd web && bun run build`.
+- Bun must be on `$PATH`. If installed via `curl -fsSL https://bun.sh/install | bash`, add `export PATH="$HOME/.bun/bin:$PATH"` to your shell or run `source ~/.bashrc`.
+- The `go.mod` declares `go 1.25.1`. Ensure the Go toolchain matches.
+- No Redis or external database is required for local development — SQLite and in-memory cache are used by default.
